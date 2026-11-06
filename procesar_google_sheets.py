@@ -49,6 +49,26 @@ def conectar_google_sheets():
     archivo_credenciales = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE")
     url_hoja = os.getenv("GOOGLE_SHEET_URL")
 
+    # En Streamlit Community Cloud se usan st.secrets en lugar de un archivo local.
+    try:
+        import streamlit as st
+        secretos = st.secrets
+    except Exception:
+        secretos = None
+
+    if secretos is not None and "gcp_service_account" in secretos:
+        datos_cuenta = dict(secretos["gcp_service_account"])
+        url_hoja = secretos.get("google_sheet_url", url_hoja)
+        if not url_hoja:
+            url_hoja = datos_cuenta.get("google_sheet_url")
+        if not url_hoja:
+            raise RuntimeError("Falta google_sheet_url en los secretos de Streamlit.")
+        credenciales = Credentials.from_service_account_info(
+            datos_cuenta, scopes=SCOPES
+        )
+        cliente = gspread.authorize(credenciales)
+        return cliente.open_by_url(url_hoja)
+
     if not archivo_credenciales:
         raise RuntimeError(
             "Falta GOOGLE_SERVICE_ACCOUNT_FILE. Define la ruta del archivo JSON "
